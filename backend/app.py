@@ -12,6 +12,7 @@ from models.ticket import Ticket
 from routes.user import user_blueprint
 from routes.admin import admin_blueprint
 from routes.dialogflow_webhook import dialogflow_webhook
+from create_dummy_data import create_dummy_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -86,6 +87,34 @@ def handle_exception(error):
 app.register_blueprint(user_blueprint, url_prefix="/user")
 app.register_blueprint(admin_blueprint, url_prefix="/admin")
 app.register_blueprint(dialogflow_webhook, url_prefix="/api")
+
+# Development endpoint to populate dummy data
+@app.route('/populate-dummy-data', methods=['POST'])
+def populate_dummy_data_endpoint():
+    """Endpoint to populate database with dummy data for demonstration"""
+    try:
+        create_dummy_data(app, db, User, Ticket)
+        return jsonify({
+            'success': True,
+            'message': 'Dummy data populated successfully!',
+            'credentials': {
+                'regular_users': [
+                    {'email': 'john.smith@example.com', 'password': 'password123'},
+                    {'email': 'sarah.johnson@example.com', 'password': 'password123'},
+                    {'email': 'mike.wilson@example.com', 'password': 'password123'}
+                ],
+                'admin_users': [
+                    {'email': 'admin@supportbot.com', 'password': 'admin123'},
+                    {'email': 'manager@supportbot.com', 'password': 'manager123'}
+                ]
+            }
+        }), 200
+    except Exception as e:
+        logger.error(f"Error populating dummy data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == "__main__":
     with app.app_context():
