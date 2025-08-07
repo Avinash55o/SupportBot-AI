@@ -1,73 +1,184 @@
-# Welcome to your Lovable project
+# SupportBot AI - Intelligent Complaint Management System
 
-## Project info
+An AI-powered complaint management system with a Flask backend and React frontend, featuring intelligent chatbot support, automated ticket generation, and real-time tracking.
 
-**URL**: https://lovable.dev/projects/b9039535-3b53-4615-ba7d-b485332ff377
+## Features
 
-## How can I edit this code?
+- 🤖 **AI-Powered Chatbot**: Intelligent complaint categorization and processing
+- 📝 **Smart Ticket Generation**: Automated ticket creation with priority assignment
+- 📊 **Real-Time Tracking**: Live status updates and progress monitoring
+- 🔐 **User Authentication**: Secure login/registration system
+- 👨‍💼 **Admin Dashboard**: Comprehensive ticket management interface
+- 🎨 **Modern UI**: Beautiful, responsive design with shadcn/ui components
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+### Backend
+- **Flask**: Python web framework
+- **SQLAlchemy**: Database ORM
+- **JWT**: Authentication tokens
+- **CORS**: Cross-origin resource sharing
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b9039535-3b53-4615-ba7d-b485332ff377) and start prompting.
+### Frontend
+- **React 18**: UI framework
+- **TypeScript**: Type safety
+- **Vite**: Build tool and dev server
+- **shadcn/ui**: Component library
+- **React Query**: Data fetching and caching
+- **React Router**: Client-side routing
 
-Changes made via Lovable will be committed automatically to this repo.
+## Quick Start
 
-**Use your preferred IDE**
+### Prerequisites
+- Node.js 18+ and npm
+- Python 3.8+
+- Git
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd SupportBot-AI
+   ```
 
-Follow these steps:
+2. **Install dependencies**
+   ```bash
+   # Install root dependencies
+   npm install
+   
+   # Install frontend dependencies
+   cd frontend && npm install && cd ..
+   
+   # Install backend dependencies
+   cd backend
+   python -m venv venv
+   
+   # Activate virtual environment
+   # On Windows:
+   venv\Scripts\activate
+   # On macOS/Linux:
+   source venv/bin/activate
+   
+   pip install -r requirements.txt
+   cd ..
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+3. **Environment Setup**
+   
+   Create a `.env` file in the backend directory:
+   ```env
+   DATABASE_URL=sqlite:///app.db
+   SECRET_KEY=your-secret-key-here
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+4. **Start the development servers**
+   ```bash
+   # Start both frontend and backend concurrently
+   npm run dev
+   
+   # Or start them separately:
+   # Backend (Terminal 1)
+   npm run dev:backend
+   
+   # Frontend (Terminal 2)
+   npm run dev:frontend
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+5. **Access the application**
+   - Frontend: http://localhost:8080
+   - Backend API: http://localhost:5000
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+## Project Structure
+
+```
+SupportBot-AI/
+├── backend/                 # Flask backend
+│   ├── app.py              # Main Flask application
+│   ├── config.py           # Configuration settings
+│   ├── requirements.txt    # Python dependencies
+│   ├── controllers/        # Business logic
+│   ├── models/            # Database models
+│   ├── routes/            # API endpoints
+│   └── utils/             # Utility functions
+├── frontend/              # React frontend
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── hooks/         # Custom React hooks
+│   │   ├── lib/           # Utility functions
+│   │   ├── pages/         # Page components
+│   │   └── App.tsx        # Main app component
+│   ├── package.json       # Node dependencies
+│   └── vite.config.ts     # Vite configuration
+├── package.json           # Root package.json
+└── README.md             # This file
+```
+
+## API Integration
+
+The frontend and backend are fully integrated through a RESTful API:
+
+### Authentication Endpoints
+- `POST /user/register` - User registration
+- `POST /user/login` - User login
+- `POST /admin/login` - Admin login
+
+### Ticket Management
+- `GET /user/tickets` - Get user tickets
+- `GET /admin/tickets` - Get all tickets (admin)
+- `PUT /admin/tickets/{id}/status` - Update ticket status
+- `PUT /admin/tickets/{id}/priority` - Update ticket priority
+
+### Key Integration Features
+
+1. **CORS Configuration**: Backend configured to accept requests from frontend
+2. **Proxy Setup**: Vite dev server proxies API requests to Flask backend
+3. **Authentication**: JWT tokens stored in localStorage
+4. **Real-time Updates**: React Query for efficient data fetching and caching
+
+## Development
+
+### Backend Development
+```bash
+cd backend
+# Activate virtual environment
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # macOS/Linux
+
+# Run Flask development server
+python app.py
+```
+
+### Frontend Development
+```bash
+cd frontend
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Database
+The application uses SQLite by default. The database file (`app.db`) is automatically created when you first run the backend.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Production Deployment
 
-**Use GitHub Codespaces**
+### Backend
+1. Set up a production database (PostgreSQL recommended)
+2. Configure environment variables
+3. Use a production WSGI server (Gunicorn)
+4. Set up reverse proxy (Nginx)
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Frontend
+1. Build the application: `npm run build`
+2. Serve static files with a web server
+3. Configure API base URL for production
 
-## What technologies are used for this project?
+## Contributing
 
-This project is built with:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## License
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/b9039535-3b53-4615-ba7d-b485332ff377) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+MIT License - see LICENSE file for details

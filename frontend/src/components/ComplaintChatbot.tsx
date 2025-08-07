@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { apiService } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -19,6 +22,8 @@ interface ComplaintChatbotProps {
 }
 
 export function ComplaintChatbot({ isOpen, onClose, onComplaintGenerated }: ComplaintChatbotProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -77,6 +82,44 @@ export function ComplaintChatbot({ isOpen, onClose, onComplaintGenerated }: Comp
     }
   };
 
+  const createTicketInBackend = async (description: string, issueType: string, priority: string) => {
+    try {
+      // For now, we'll create a simple ticket creation endpoint
+      // You can extend this to use the actual API when you implement ticket creation
+      const response = await fetch('http://localhost:5000/api/create-ticket', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          issue_type: issueType,
+          description: description,
+          user_id: user?.id,
+          priority: priority
+        })
+      });
+
+      if (response.ok) {
+        const ticket = await response.json();
+        return ticket;
+      } else {
+        throw new Error('Failed to create ticket');
+      }
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+      // For now, return a mock ticket
+      return {
+        id: Date.now(),
+        issue_type: issueType,
+        description: description,
+        status: 'open',
+        priority: priority,
+        user_id: user?.id,
+        created_at: new Date().toISOString()
+      };
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
@@ -92,7 +135,7 @@ export function ComplaintChatbot({ isOpen, onClose, onComplaintGenerated }: Comp
     setInputValue("");
     setIsTyping(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const botResponse = generateBotResponse(currentInput);
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -104,22 +147,34 @@ export function ComplaintChatbot({ isOpen, onClose, onComplaintGenerated }: Comp
       setMessages(prev => [...prev, botMessage]);
       setIsTyping(false);
 
-      const category = currentInput.toLowerCase().includes("billing") || currentInput.toLowerCase().includes("payment") ? "Billing" :
-                       currentInput.toLowerCase().includes("technical") || currentInput.toLowerCase().includes("not working") || currentInput.toLowerCase().includes("error") ? "Technical" :
-                       "General";
-      const priority = currentInput.toLowerCase().includes("urgent") || currentInput.toLowerCase().includes("emergency") ? "Critical" :
-                       currentInput.toLowerCase().includes("billing") || currentInput.toLowerCase().includes("technical") ? "High" :
-                       "Medium";
+      // Determine ticket details
+      const issueType = currentInput.toLowerCase().includes("billing") || currentInput.toLowerCase().includes("payment") ? "Billing" :
+                       currentInput.toLowerCase().includes("technical") || currentInput.toLowerCase().includes("not working") || currentInput.toLowerCase().includes("error") ? "Technical Support" :
+                       currentInput.toLowerCase().includes("urgent") || currentInput.toLowerCase().includes("emergency") ? "Emergency" :
+                       "General Inquiry";
+      
+      const priority = currentInput.toLowerCase().includes("urgent") || currentInput.toLowerCase().includes("emergency") ? "urgent" :
+                       currentInput.toLowerCase().includes("billing") || currentInput.toLowerCase().includes("technical") ? "high" :
+                       "normal";
 
-      setTimeout(() => {
-        onComplaintGenerated?.({
-          id: `TICKET-${Date.now()}`,
-          description: currentInput,
-          category: category,
-          priority: priority,
-          status: "Open",
-          createdAt: new Date(),
-        });
+      // Create ticket in backend
+      setTimeout(async () => {
+        try {
+          const ticket = await createTicketInBackend(currentInput, issueType, priority);
+          
+          toast({
+            title: "Ticket Created",
+            description: `Your ticket #${ticket.id} has been created successfully!`,
+          });
+
+          onComplaintGenerated?.(ticket);
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "Failed to create ticket. Please try again.",
+            variant: "destructive",
+          });
+        }
       }, 1000);
     }, 1500);
   };

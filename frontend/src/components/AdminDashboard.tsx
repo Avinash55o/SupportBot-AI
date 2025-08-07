@@ -8,20 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Bar, BarChart as RechartsBarChart, Pie, PieChart as RechartsPieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell } from "recharts";
-
-interface Ticket {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  priority: "Low" | "Medium" | "High" | "Critical";
-  status: "Open" | "In Progress" | "Resolved" | "Closed";
-  assignedTo: string;
-  customer: string;
-  createdAt: Date;
-  updatedAt: Date;
-  aiSuggestion?: string;
-}
+import { useAllTickets, useUpdateTicketStatus, useAnalytics } from "@/hooks/useTickets";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 interface Activity {
   id: number;
@@ -32,95 +21,80 @@ interface Activity {
 }
 
 export const AdminDashboard = () => {
-  const [tickets, setTickets] = useState<Ticket[]>([
-    {
-      id: "TICKET-001",
-      title: "Login Issues",
-      description: "Unable to login to my account",
-      category: "Technical",
-      priority: "High",
-      status: "In Progress",
-      assignedTo: "Tech Team",
-      customer: "John Doe",
-      createdAt: new Date("2024-01-15"),
-      updatedAt: new Date("2024-01-16"),
-      aiSuggestion: "Suggest password reset and 2FA setup",
-    },
-    {
-      id: "TICKET-002",
-      title: "Billing Discrepancy",
-      description: "Incorrect charges on my account",
-      category: "Billing",
-      priority: "Medium",
-      status: "Open",
-      assignedTo: "Billing Team",
-      customer: "Jane Smith",
-      createdAt: new Date("2024-01-14"),
-      updatedAt: new Date("2024-01-14"),
-      aiSuggestion: "Review transaction history and apply refund if necessary",
-    },
-    {
-      id: "TICKET-003",
-      title: "Service Outage",
-      description: "Website not accessible",
-      category: "Technical",
-      priority: "Critical",
-      status: "Open",
-      assignedTo: "Infrastructure Team",
-      customer: "Bob Johnson",
-      createdAt: new Date("2024-01-16"),
-      updatedAt: new Date("2024-01-16"),
-      aiSuggestion: "Escalate to senior technical team immediately",
-    },
-    {
-      id: "TICKET-004",
-      title: "Slow Service",
-      description: "The service has been very slow lately.",
-      category: "Service",
-      priority: "Low",
-      status: "Open",
-      assignedTo: "Support Team",
-      customer: "Alice Williams",
-      createdAt: new Date("2024-01-18"),
-      updatedAt: new Date("2024-01-18"),
-      aiSuggestion: "Check for any ongoing service disruptions.",
-    },
-  ]);
-
-  const [recentActivity] = useState<Activity[]>([
-    { id: 1, type: 'new_ticket', details: 'New ticket #TICKET-004 created by Alice Williams.', timestamp: '2 hours ago', icon: <Ticket className="h-5 w-5 text-blue-500" /> },
-    { id: 2, type: 'status_change', details: 'Ticket #TICKET-001 status changed to In Progress.', timestamp: '3 hours ago', icon: <UserCheck className="h-5 w-5 text-green-500" /> },
-    { id: 3, type: 'new_message', details: 'New message from John Doe on #TICKET-001.', timestamp: '5 hours ago', icon: <MessageSquare className="h-5 w-5 text-yellow-500" /> },
-  ]);
-
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 
+  // Fetch all tickets from backend
+  const { data: ticketsData, isLoading, error } = useAllTickets();
+  const { data: analyticsData } = useAnalytics();
+  const updateTicketStatus = useUpdateTicketStatus();
+
+  const tickets = ticketsData?.data?.tickets || [];
+
+  const [recentActivity] = useState<Activity[]>([
+    { id: 1, type: 'new_ticket', details: 'New ticket created.', timestamp: '2 hours ago', icon: <Ticket className="h-5 w-5 text-blue-500" /> },
+    { id: 2, type: 'status_change', details: 'Ticket status updated.', timestamp: '3 hours ago', icon: <UserCheck className="h-5 w-5 text-green-500" /> },
+    { id: 3, type: 'new_message', details: 'New message received.', timestamp: '5 hours ago', icon: <MessageSquare className="h-5 w-5 text-yellow-500" /> },
+  ]);
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "Critical": return "destructive";
-      case "High": return "destructive";
-      case "Medium": return "secondary";
-      case "Low": return "outline";
+      case "urgent": return "destructive";
+      case "high": return "destructive";
+      case "normal": return "secondary";
+      case "low": return "outline";
       default: return "outline";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "Open": return <Clock className="h-4 w-4 text-yellow-500" />;
-      case "In Progress": return <AlertTriangle className="h-4 w-4 text-blue-500" />;
-      case "Resolved": return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "Closed": return <CheckCircle className="h-4 w-4 text-gray-500" />;
+      case "open": return <Clock className="h-4 w-4 text-yellow-500" />;
+      case "in_progress": return <AlertTriangle className="h-4 w-4 text-blue-500" />;
+      case "resolved": return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "closed": return <CheckCircle className="h-4 w-4 text-gray-500" />;
       default: return <Clock className="h-4 w-4" />;
     }
   };
 
+  const formatStatus = (status: string) => {
+    return status.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
+
+  const formatPriority = (priority: string) => {
+    return priority.charAt(0).toUpperCase() + priority.slice(1);
+  };
+
+  const handleStatusUpdate = async (ticketId: number, newStatus: string) => {
+    try {
+      await updateTicketStatus.mutateAsync({
+        ticketId,
+        status: newStatus,
+        notes: `Status updated to ${formatStatus(newStatus)} by admin`
+      });
+      
+      toast({
+        title: "Status Updated",
+        description: `Ticket #${ticketId} status has been updated to ${formatStatus(newStatus)}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update ticket status",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredTickets = tickets.filter(ticket => {
-    const matchesSearch = ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         ticket.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         ticket.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = ticket.issue_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         ticket.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         ticket.id.toString().includes(searchQuery);
     
     const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
     const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter;
@@ -137,36 +111,69 @@ export const AdminDashboard = () => {
     },
     {
       title: "Open Tickets",
-      value: tickets.filter(t => t.status === "Open").length,
+      value: tickets.filter(t => t.status === "open").length,
       description: "Awaiting assignment",
       icon: <Clock className="h-6 w-6 text-yellow-500" />,
     },
     {
       title: "In Progress",
-      value: tickets.filter(t => t.status === "In Progress").length,
+      value: tickets.filter(t => t.status === "in_progress").length,
       description: "Being worked on",
       icon: <TrendingUp className="h-6 w-6 text-blue-500" />,
     },
     {
-      title: "Critical Issues",
-      value: tickets.filter(t => t.priority === "Critical").length,
-      description: "Require immediate attention",
+      title: "High Priority",
+      value: tickets.filter(t => t.priority === "high" || t.priority === "urgent").length,
+      description: "Require attention",
       icon: <AlertTriangle className="h-6 w-6 text-red-500" />,
     },
   ];
 
   const ticketStatusData = [
-    { name: 'Open', value: tickets.filter(t => t.status === 'Open').length },
-    { name: 'In Progress', value: tickets.filter(t => t.status === 'In Progress').length },
-    { name: 'Resolved', value: tickets.filter(t => t.status === 'Resolved').length },
+    { name: 'Open', value: tickets.filter(t => t.status === 'open').length },
+    { name: 'In Progress', value: tickets.filter(t => t.status === 'in_progress').length },
+    { name: 'Resolved', value: tickets.filter(t => t.status === 'resolved').length },
+    { name: 'Closed', value: tickets.filter(t => t.status === 'closed').length },
   ];
   
   const ticketPriorityData = [
-    { name: 'Low', value: tickets.filter(t => t.priority === 'Low').length, color: '#60a5fa' },
-    { name: 'Medium', value: tickets.filter(t => t.priority === 'Medium').length, color: '#facc15' },
-    { name: 'High', value: tickets.filter(t => t.priority === 'High').length, color: '#f97316' },
-    { name: 'Critical', value: tickets.filter(t => t.priority === 'Critical').length, color: '#ef4444' },
+    { name: 'Low', value: tickets.filter(t => t.priority === 'low').length, color: '#60a5fa' },
+    { name: 'Normal', value: tickets.filter(t => t.priority === 'normal').length, color: '#facc15' },
+    { name: 'High', value: tickets.filter(t => t.priority === 'high').length, color: '#f97316' },
+    { name: 'Urgent', value: tickets.filter(t => t.priority === 'urgent').length, color: '#ef4444' },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading tickets...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Error Loading Tickets</h3>
+              <p className="text-muted-foreground mb-4">Unable to load tickets. Please try again.</p>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
@@ -284,10 +291,10 @@ export const AdminDashboard = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Open">Open</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Resolved">Resolved</SelectItem>
-                  <SelectItem value="Closed">Closed</SelectItem>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -296,10 +303,10 @@ export const AdminDashboard = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="Critical">Critical</SelectItem>
-                  <SelectItem value="High">High</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="Low">Low</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -310,54 +317,66 @@ export const AdminDashboard = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Ticket ID</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Title</TableHead>
+                    <TableHead>Issue Type</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Assigned To</TableHead>
+                    <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTickets.map((ticket) => (
                     <TableRow key={ticket.id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">{ticket.id}</TableCell>
-                      <TableCell>{ticket.customer}</TableCell>
-                      <TableCell className="max-w-xs truncate">{ticket.title}</TableCell>
+                      <TableCell className="font-medium">#{ticket.id}</TableCell>
+                      <TableCell>{ticket.issue_type}</TableCell>
+                      <TableCell className="max-w-xs truncate">{ticket.description}</TableCell>
                       <TableCell>
                         <Badge variant={getPriorityColor(ticket.priority)}>
-                          {ticket.priority}
+                          {formatPriority(ticket.priority)}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getStatusIcon(ticket.status)}
-                          <span className="text-sm">{ticket.status}</span>
+                          <span className="text-sm">{formatStatus(ticket.status)}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{ticket.assignedTo}</TableCell>
+                      <TableCell>{new Date(ticket.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm">View</Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Ticket Details</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                              <p><strong>ID:</strong> {ticket.id}</p>
-                              <p><strong>Customer:</strong> {ticket.customer}</p>
-                              <p><strong>Title:</strong> {ticket.title}</p>
-                              <p><strong>Description:</strong> {ticket.description}</p>
-                              <p><strong>Category:</strong> {ticket.category}</p>
-                              <p><strong>Priority:</strong> {ticket.priority}</p>
-                              <p><strong>Status:</strong> {ticket.status}</p>
-                              <p><strong>Assigned To:</strong> {ticket.assignedTo}</p>
-                              {ticket.aiSuggestion && <p className="text-sm bg-blue-50 p-3 rounded-lg"><strong>AI Suggestion:</strong> {ticket.aiSuggestion}</p>}
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                        <div className="flex gap-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">View</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Ticket Details</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <p><strong>ID:</strong> #{ticket.id}</p>
+                                <p><strong>Issue Type:</strong> {ticket.issue_type}</p>
+                                <p><strong>Description:</strong> {ticket.description}</p>
+                                <p><strong>Priority:</strong> {formatPriority(ticket.priority)}</p>
+                                <p><strong>Status:</strong> {formatStatus(ticket.status)}</p>
+                                <p><strong>Created:</strong> {new Date(ticket.created_at).toLocaleString()}</p>
+                                <p><strong>Updated:</strong> {new Date(ticket.updated_at).toLocaleString()}</p>
+                                {ticket.notes && <p><strong>Notes:</strong> {ticket.notes}</p>}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                          <Select onValueChange={(value) => handleStatusUpdate(ticket.id, value)}>
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue placeholder="Update Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="open">Open</SelectItem>
+                              <SelectItem value="in_progress">In Progress</SelectItem>
+                              <SelectItem value="resolved">Resolved</SelectItem>
+                              <SelectItem value="closed">Closed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -369,6 +388,6 @@ export const AdminDashboard = () => {
       </div>
     </div>
   );
-}
+};
 
 export default AdminDashboard;

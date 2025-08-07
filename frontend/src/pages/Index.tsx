@@ -1,13 +1,19 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle, Users, Bot, Zap, Clock } from "lucide-react";
+import { MessageCircle, Users, Bot, Zap, Clock, LogIn, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ComplaintChatbot } from "@/components/ComplaintChatbot";
+import { LoginForm } from "@/components/LoginForm";
+import { RegisterForm } from "@/components/RegisterForm";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
 
   const features = [
     {
@@ -40,13 +46,28 @@ const Index = () => {
             smart ticketing, and real-time tracking.
           </p>
           <div className="flex gap-4 justify-center">
-            <Button size="lg" onClick={() => navigate("/dashboard")} className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5" />
-              Get Started
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => navigate("/dashboard")}>
-              View Demo
-            </Button>
+            {isAuthenticated ? (
+              <>
+                <Button size="lg" onClick={() => navigate("/dashboard")} className="flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5" />
+                  Go to Dashboard
+                </Button>
+                <Button variant="outline" size="lg" onClick={() => navigate("/dashboard")}>
+                  View Demo
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="lg" onClick={() => setShowLogin(true)} className="flex items-center gap-2">
+                  <LogIn className="h-5 w-5" />
+                  Sign In
+                </Button>
+                <Button variant="outline" size="lg" onClick={() => setShowRegister(true)} className="flex items-center gap-2">
+                  <UserPlus className="h-5 w-5" />
+                  Sign Up
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -109,6 +130,44 @@ const Index = () => {
 
       {/* Chatbot Pop-up */}
       <ComplaintChatbot isOpen={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
+
+      {/* Login Modal */}
+      {showLogin && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-lg p-6 max-w-md w-full">
+            <LoginForm 
+              onSuccess={() => {
+                setShowLogin(false);
+                navigate("/dashboard");
+              }}
+            />
+            <div className="mt-4 text-center">
+              <Button variant="link" onClick={() => setShowLogin(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Register Modal */}
+      {showRegister && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-lg p-6 max-w-md w-full">
+            <RegisterForm 
+              onSuccess={() => {
+                setShowRegister(false);
+                setShowLogin(true);
+              }}
+            />
+            <div className="mt-4 text-center">
+              <Button variant="link" onClick={() => setShowRegister(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -14,17 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-
-interface Complaint {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  priority: "Low" | "Medium" | "High" | "Critical";
-  status: "Open" | "In Progress" | "Resolved" | "Closed";
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { useAuth } from "@/hooks/useAuth";
+import { useUserTickets } from "@/hooks/useTickets";
+import { Ticket as TicketType } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface Activity {
   id: number;
@@ -35,101 +28,114 @@ interface Activity {
 }
 
 export const UserDashboard = () => {
-  const [complaints, setComplaints] = useState<Complaint[]>([
-    {
-      id: "TICKET-001",
-      title: "Login Issues",
-      description: "Unable to login to my account",
-      category: "Technical",
-      priority: "High",
-      status: "In Progress",
-      createdAt: new Date("2024-01-15"),
-      updatedAt: new Date("2024-01-16"),
-    },
-    {
-      id: "TICKET-002",
-      title: "Billing Discrepancy",
-      description: "Incorrect charges on my account",
-      category: "Billing",
-      priority: "Medium",
-      status: "Open",
-      createdAt: new Date("2024-01-14"),
-      updatedAt: new Date("2024-01-14"),
-    },
-    {
-      id: "TICKET-004",
-      title: "Slow Service",
-      description: "The service has been very slow lately.",
-      category: "Service",
-      priority: "Low",
-      status: "Open",
-      createdAt: new Date("2024-01-18"),
-      updatedAt: new Date("2024-01-18"),
-    },
-  ]);
-  
-  const [recentActivity] = useState<Activity[]>([
-    { id: 1, type: 'new_ticket', details: 'You created a new ticket #TICKET-004.', timestamp: '2 hours ago', icon: <Ticket className="h-5 w-5 text-blue-500" /> },
-    { id: 2, type: 'status_change', details: 'Your ticket #TICKET-001 is now In Progress.', timestamp: '3 hours ago', icon: <UserCheck className="h-5 w-5 text-green-500" /> },
-    { id: 3, type: 'new_message', details: 'You received a new message on #TICKET-001.', timestamp: '5 hours ago', icon: <MessageCircle className="h-5 w-5 text-yellow-500" /> },
-  ]);
-
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
 
+  // Fetch tickets from backend
+  const { data: ticketsData, isLoading, error } = useUserTickets(user?.id || 0);
+
+  const tickets = ticketsData?.data?.tickets || [];
+
+  const [recentActivity] = useState<Activity[]>([
+    { id: 1, type: 'new_ticket', details: 'You created a new ticket.', timestamp: '2 hours ago', icon: <Ticket className="h-5 w-5 text-blue-500" /> },
+    { id: 2, type: 'status_change', details: 'Your ticket status was updated.', timestamp: '3 hours ago', icon: <UserCheck className="h-5 w-5 text-green-500" /> },
+    { id: 3, type: 'new_message', details: 'You received a new message.', timestamp: '5 hours ago', icon: <MessageCircle className="h-5 w-5 text-yellow-500" /> },
+  ]);
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "Critical": return "destructive";
-      case "High": return "destructive";
-      case "Medium": return "secondary";
-      case "Low": return "outline";
+      case "urgent": return "destructive";
+      case "high": return "destructive";
+      case "normal": return "secondary";
+      case "low": return "outline";
       default: return "outline";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "Open": return <Clock className="h-4 w-4 text-yellow-500" />;
-      case "In Progress": return <AlertTriangle className="h-4 w-4 text-blue-500" />;
-      case "Resolved": return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "Closed": return <CheckCircle className="h-4 w-4 text-gray-500" />;
+      case "open": return <Clock className="h-4 w-4 text-yellow-500" />;
+      case "in_progress": return <AlertTriangle className="h-4 w-4 text-blue-500" />;
+      case "resolved": return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "closed": return <CheckCircle className="h-4 w-4 text-gray-500" />;
       default: return <Clock className="h-4 w-4" />;
     }
   };
 
+  const formatStatus = (status: string) => {
+    return status.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
+
+  const formatPriority = (priority: string) => {
+    return priority.charAt(0).toUpperCase() + priority.slice(1);
+  };
+
   const handleComplaintGenerated = (newComplaint: any) => {
-    const complaint: Complaint = {
-      ...newComplaint,
-      title: newComplaint.description.slice(0, 50) + "...",
-      updatedAt: new Date(),
-    };
-    setComplaints(prev => [complaint, ...prev]);
+    toast({
+      title: "Ticket Created",
+      description: "Your complaint has been submitted successfully!",
+    });
     setIsChatbotOpen(false);
   };
 
-  const filteredComplaints = complaints.filter(complaint =>
-    complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    complaint.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    complaint.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTickets = tickets.filter(ticket =>
+    ticket.issue_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    ticket.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const statsData = [
     {
       title: "Total Complaints",
-      value: complaints.length,
+      value: tickets.length,
       description: "All time submissions",
     },
     {
       title: "Open Issues",
-      value: complaints.filter(c => c.status === "Open" || c.status === "In Progress").length,
+      value: tickets.filter(t => t.status === "open" || t.status === "in_progress").length,
       description: "Awaiting resolution",
     },
     {
       title: "Resolved",
-      value: complaints.filter(c => c.status === "Resolved" || c.status === "Closed").length,
+      value: tickets.filter(t => t.status === "resolved" || t.status === "closed").length,
       description: "Successfully handled",
     },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading your tickets...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Error Loading Tickets</h3>
+              <p className="text-muted-foreground mb-4">Unable to load your tickets. Please try again.</p>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
@@ -137,7 +143,7 @@ export const UserDashboard = () => {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Welcome Back!</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Welcome Back, {user?.name}!</h1>
             <p className="text-muted-foreground">Here's a summary of your support requests.</p>
           </div>
           <Button onClick={() => setIsChatbotOpen(true)} className="flex items-center gap-2">
@@ -184,30 +190,30 @@ export const UserDashboard = () => {
                     <TableRow>
                       <TableHead>Status</TableHead>
                       <TableHead>Ticket ID</TableHead>
-                      <TableHead>Title</TableHead>
+                      <TableHead>Issue Type</TableHead>
                       <TableHead>Priority</TableHead>
-                      <TableHead>Last Updated</TableHead>
+                      <TableHead>Created</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredComplaints.length > 0 ? (
-                      filteredComplaints.map((complaint) => (
-                        <TableRow key={complaint.id} className="hover:bg-gray-50">
+                    {filteredTickets.length > 0 ? (
+                      filteredTickets.map((ticket) => (
+                        <TableRow key={ticket.id} className="hover:bg-gray-50">
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              {getStatusIcon(complaint.status)}
-                              <span>{complaint.status}</span>
+                              {getStatusIcon(ticket.status)}
+                              <span>{formatStatus(ticket.status)}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="font-medium">{complaint.id}</TableCell>
-                          <TableCell>{complaint.title}</TableCell>
+                          <TableCell className="font-medium">#{ticket.id}</TableCell>
+                          <TableCell>{ticket.issue_type}</TableCell>
                           <TableCell>
-                            <Badge variant={getPriorityColor(complaint.priority)}>
-                              {complaint.priority}
+                            <Badge variant={getPriorityColor(ticket.priority)}>
+                              {formatPriority(ticket.priority)}
                             </Badge>
                           </TableCell>
-                          <TableCell>{complaint.updatedAt.toLocaleDateString()}</TableCell>
+                          <TableCell>{new Date(ticket.created_at).toLocaleDateString()}</TableCell>
                           <TableCell>
                             <Dialog>
                               <DialogTrigger asChild>
@@ -218,12 +224,14 @@ export const UserDashboard = () => {
                                   <DialogTitle>Complaint Details</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-4 py-4">
-                                  <p><strong>ID:</strong> {complaint.id}</p>
-                                  <p><strong>Title:</strong> {complaint.title}</p>
-                                  <p><strong>Description:</strong> {complaint.description}</p>
-                                  <p><strong>Category:</strong> {complaint.category}</p>
-                                  <p><strong>Priority:</strong> {complaint.priority}</p>
-                                  <p><strong>Status:</strong> {complaint.status}</p>
+                                  <p><strong>ID:</strong> #{ticket.id}</p>
+                                  <p><strong>Issue Type:</strong> {ticket.issue_type}</p>
+                                  <p><strong>Description:</strong> {ticket.description}</p>
+                                  <p><strong>Priority:</strong> {formatPriority(ticket.priority)}</p>
+                                  <p><strong>Status:</strong> {formatStatus(ticket.status)}</p>
+                                  <p><strong>Created:</strong> {new Date(ticket.created_at).toLocaleString()}</p>
+                                  <p><strong>Updated:</strong> {new Date(ticket.updated_at).toLocaleString()}</p>
+                                  {ticket.notes && <p><strong>Notes:</strong> {ticket.notes}</p>}
                                 </div>
                               </DialogContent>
                             </Dialog>
@@ -232,8 +240,8 @@ export const UserDashboard = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">
-                          No complaints found.
+                        <TableCell colSpan={6} className="h-24 text-center">
+                          {searchQuery ? "No complaints found matching your search." : "No complaints found. Create your first one!"}
                         </TableCell>
                       </TableRow>
                     )}
@@ -274,4 +282,4 @@ export const UserDashboard = () => {
       />
     </div>
   );
-}
+};
