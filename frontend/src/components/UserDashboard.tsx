@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MessageCircle, Plus, Search, Clock, CheckCircle, AlertTriangle, ChevronRight, Ticket, UserCheck } from "lucide-react";
+import { MessageCircle, Plus, Search, Clock, CheckCircle, AlertTriangle, ChevronRight, Ticket, UserCheck, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -189,7 +189,7 @@ export const UserDashboard = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Status</TableHead>
-                      <TableHead>Ticket ID</TableHead>
+                      <TableHead>Ticket Token</TableHead>
                       <TableHead>Issue Type</TableHead>
                       <TableHead>Priority</TableHead>
                       <TableHead>Created</TableHead>
@@ -206,7 +206,21 @@ export const UserDashboard = () => {
                               <span>{formatStatus(ticket.status)}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="font-medium">#{ticket.id}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="font-mono text-xs bg-blue-50 border-blue-200 text-blue-700">
+                                {ticket.token}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigator.clipboard.writeText(ticket.token)}
+                                className="h-6 w-6 p-0 hover:bg-blue-100"
+                              >
+                                <Copy className="h-3 w-3 text-blue-600" />
+                              </Button>
+                            </div>
+                          </TableCell>
                           <TableCell>{ticket.issue_type}</TableCell>
                           <TableCell>
                             <Badge variant={getPriorityColor(ticket.priority)}>
@@ -224,6 +238,20 @@ export const UserDashboard = () => {
                                   <DialogTitle>Complaint Details</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-4 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <p><strong>Token:</strong></p>
+                                    <Badge variant="outline" className="font-mono bg-blue-50 border-blue-200 text-blue-700">
+                                      {ticket.token}
+                                    </Badge>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => navigator.clipboard.writeText(ticket.token)}
+                                      className="h-6 w-6 p-0 hover:bg-blue-100"
+                                    >
+                                      <Copy className="h-3 w-3 text-blue-600" />
+                                    </Button>
+                                  </div>
                                   <p><strong>ID:</strong> #{ticket.id}</p>
                                   <p><strong>Issue Type:</strong> {ticket.issue_type}</p>
                                   <p><strong>Description:</strong> {ticket.description}</p>

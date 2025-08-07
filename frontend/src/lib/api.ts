@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 export interface User {
   id: number;
@@ -8,7 +8,9 @@ export interface User {
 
 export interface Ticket {
   id: number;
-  title: string;
+  token: string;
+  title?: string;
+  issue_type: string;
   description: string;
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
   priority: 'low' | 'normal' | 'high' | 'urgent';
@@ -17,6 +19,30 @@ export interface Ticket {
   updated_at: string;
   assigned_to?: number;
   notes?: string;
+}
+
+export interface AIAnalysis {
+  category: string;
+  category_confidence: number;
+  priority: string;
+  priority_confidence: number;
+  sentiment: {
+    sentiment: string;
+    score: number;
+    subjectivity: number;
+  };
+  keywords: string[];
+  urgency_score: number;
+  analysis_timestamp: string;
+}
+
+export interface AIInsights {
+  total_analyzed: number;
+  category_distribution: Record<string, number>;
+  priority_distribution: Record<string, number>;
+  average_sentiment: number;
+  top_categories: [string, number][];
+  top_priorities: [string, number][];
 }
 
 export interface LoginRequest {
@@ -47,7 +73,7 @@ class ApiService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const url = `${this.baseURL}${endpoint}`;
+    const url = this.baseURL ? `${this.baseURL}${endpoint}` : endpoint;
     
     const config: RequestInit = {
       headers: {
@@ -68,14 +94,35 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
-
+      
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        return { error: data.error || 'An error occurred' };
+        let errorMessage = 'An error occurred';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If we can't parse the error response, use the status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        return { error: errorMessage };
+      }
+
+      // Try to parse JSON response
+      let data;
+      try {
+        data = await response.json();
+      } catch (error) {
+        return { error: 'Invalid response format' };
       }
 
       return { data };
     } catch (error) {
+      console.error('Network error:', error);
+      // Check if it's a network error (no internet, server down, etc.)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return { error: 'Network error occurred. Please check your connection and ensure the backend server is running.' };
+      }
       return { error: 'Network error occurred' };
     }
   }
@@ -102,7 +149,7 @@ class ApiService {
     });
   }
 
-  // User ticket endpoints
+  // Ticket endpoints
   async getUserTickets(userId: number): Promise<ApiResponse<{ tickets: Ticket[] }>> {
     return this.request<{ tickets: Ticket[] }>(`/user/tickets?user_id=${userId}`);
   }
@@ -111,22 +158,33 @@ class ApiService {
     return this.request<Ticket>(`/user/tickets/${ticketId}?user_id=${userId}`);
   }
 
-  // Admin endpoints
   async getAllTickets(params?: {
     status?: string;
     priority?: string;
     page?: number;
     per_page?: number;
   }): Promise<ApiResponse<{ tickets: Ticket[]; total: number; page: number; per_page: number }>> {
-    const searchParams = new URLSearchParams();
-    if (params?.status) searchParams.append('status', params.status);
-    if (params?.priority) searchParams.append('priority', params.priority);
-    if (params?.page) searchParams.append('page', params.page.toString());
-    if (params?.per_page) searchParams.append('per_page', params.per_page.toString());
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.priority) queryParams.append('priority', params.priority);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
 
-    const queryString = searchParams.toString();
     return this.request<{ tickets: Ticket[]; total: number; page: number; per_page: number }>(
-      `/admin/tickets${queryString ? `?${queryString}` : ''}`
+      `/admin/tickets?${queryParams.toString()}`
+    );
+  }
+
+  async createTicket(ticketData: {
+    description: string;
+    user_id?: number;
+  }): Promise<ApiResponse<{ ticket: Ticket; analysis: AIAnalysis; intelligent_response: string; entities: any; similar_tickets: Ticket[] }>> {
+    return this.request<{ ticket: Ticket; analysis: AIAnalysis; intelligent_response: string; entities: any; similar_tickets: Ticket[] }>(
+      '/api/create-ticket',
+      {
+        method: 'POST',
+        body: JSON.stringify(ticketData),
+      }
     );
   }
 
@@ -164,6 +222,77 @@ class ApiService {
 
   async getAnalytics(): Promise<ApiResponse<any>> {
     return this.request<any>('/admin/analytics');
+  }
+
+  // AI/ML endpoints
+  async analyzeComplaint(text: string): Promise<ApiResponse<{
+    analysis: AIAnalysis;
+    intelligent_response: string;
+    entities: any;
+    similar_tickets: Ticket[];
+  }>> {
+    return this.request<{
+      analysis: AIAnalysis;
+      intelligent_response: string;
+      entities: any;
+      similar_tickets: Ticket[];
+    }>('/api/analyze-complaint', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async suggestTicketAssignment(ticketId: number): Promise<ApiResponse<{
+    suggested_admin: User;
+    reasoning: string;
+    analysis: AIAnalysis;
+  }>> {
+    return this.request<{
+      suggested_admin: User;
+      reasoning: string;
+      analysis: AIAnalysis;
+    }>(`/api/suggest-assignment/${ticketId}`);
+  }
+
+  async getSimilarTickets(ticketId: number): Promise<ApiResponse<{ similar_tickets: Ticket[] }>> {
+    return this.request<{ similar_tickets: Ticket[] }>(`/api/similar-tickets/${ticketId}`);
+  }
+
+  async retrainModels(ticketId: number, actualCategory?: string, actualPriority?: string): Promise<ApiResponse<{
+    success: boolean;
+    category_accuracy?: number;
+    priority_accuracy?: number;
+    training_samples?: number;
+  }>> {
+    return this.request<{
+      success: boolean;
+      category_accuracy?: number;
+      priority_accuracy?: number;
+      training_samples?: number;
+    }>('/api/retrain-models', {
+      method: 'POST',
+      body: JSON.stringify({
+        ticket_id: ticketId,
+        actual_category: actualCategory,
+        actual_priority: actualPriority,
+      }),
+    });
+  }
+
+  async getAIInsights(): Promise<ApiResponse<{
+    total_tickets: number;
+    open_tickets: number;
+    in_progress_tickets: number;
+    resolved_tickets: number;
+    ai_insights: AIInsights;
+  }>> {
+    return this.request<{
+      total_tickets: number;
+      open_tickets: number;
+      in_progress_tickets: number;
+      resolved_tickets: number;
+      ai_insights: AIInsights;
+    }>('/api/ai-insights');
   }
 }
 

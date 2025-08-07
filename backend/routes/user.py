@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from controllers.auth_controller import authenticate_user
-from controllers.ticket_controller import get_user_tickets, get_ticket_status
+from controllers.ticket_controller import TicketController
 
 user_blueprint = Blueprint('user', __name__)
 
@@ -36,16 +36,33 @@ def login():
         return jsonify({'error': 'Email and password required'}), 400
     
     try:
+        # Get user by email
+        user = authenticate_user.get_user_by_email(data['email'])
+        if not user:
+            return jsonify({'error': 'Invalid email or password'}), 401
+        
+        # Check password
+        if not authenticate_user.check_password(user, data['password']):
+            return jsonify({'error': 'Invalid email or password'}), 401
+        
+        # Generate token
         token = authenticate_user.login_user(
             email=data['email'],
             password=data['password']
         )
+        
         return jsonify({
             'message': 'Login successful',
-            'token': token
+            'token': token,
+            'user': {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email
+            }
         }), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 401
+        print(f"Login error: {str(e)}")
+        return jsonify({'error': 'Login failed'}), 401
 
 @user_blueprint.route('/tickets', methods=['GET'])
 def get_tickets():
@@ -54,7 +71,8 @@ def get_tickets():
     user_id = request.args.get('user_id')  # In production, get from JWT token
     
     try:
-        tickets = get_user_tickets(user_id)
+        ticket_controller = TicketController()
+        tickets = ticket_controller.get_user_tickets(user_id)
         return jsonify({
             'tickets': [ticket.to_dict() for ticket in tickets]
         }), 200
@@ -67,7 +85,8 @@ def get_ticket(ticket_id):
     user_id = request.args.get('user_id')  # In production, get from JWT token
     
     try:
-        ticket = get_ticket_status(ticket_id, user_id)
+        ticket_controller = TicketController()
+        ticket = ticket_controller.get_ticket_status(ticket_id, user_id)
         return jsonify(ticket.to_dict()), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 404

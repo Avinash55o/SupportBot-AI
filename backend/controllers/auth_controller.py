@@ -29,6 +29,14 @@ class AuthController:
         
         return user
     
+    def get_user_by_email(self, email):
+        """Get user by email"""
+        return User.query.filter_by(email=email).first()
+    
+    def check_password(self, user, password):
+        """Check if password is correct for user"""
+        return check_password_hash(user.password_hash, password)
+    
     def login_user(self, email, password):
         """Login user and return JWT token"""
         user = User.query.filter_by(email=email).first()

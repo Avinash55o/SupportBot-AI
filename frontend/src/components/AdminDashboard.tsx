@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Users, Clock, TrendingUp, AlertTriangle, CheckCircle, Settings, Search, Ticket, MessageSquare, UserCheck } from "lucide-react";
+import { Users, Clock, TrendingUp, AlertTriangle, CheckCircle, Settings, Search, Ticket, MessageSquare, UserCheck, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -316,7 +316,7 @@ export const AdminDashboard = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Ticket ID</TableHead>
+                    <TableHead>Ticket Token</TableHead>
                     <TableHead>Issue Type</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Priority</TableHead>
@@ -328,7 +328,21 @@ export const AdminDashboard = () => {
                 <TableBody>
                   {filteredTickets.map((ticket) => (
                     <TableRow key={ticket.id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">#{ticket.id}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="font-mono text-xs bg-blue-50 border-blue-200 text-blue-700">
+                            {ticket.token}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigator.clipboard.writeText(ticket.token)}
+                            className="h-6 w-6 p-0 hover:bg-blue-100"
+                          >
+                            <Copy className="h-3 w-3 text-blue-600" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>{ticket.issue_type}</TableCell>
                       <TableCell className="max-w-xs truncate">{ticket.description}</TableCell>
                       <TableCell>
@@ -354,6 +368,20 @@ export const AdminDashboard = () => {
                                 <DialogTitle>Ticket Details</DialogTitle>
                               </DialogHeader>
                               <div className="space-y-4 py-4">
+                                <div className="flex items-center gap-2">
+                                  <p><strong>Token:</strong></p>
+                                  <Badge variant="outline" className="font-mono bg-blue-50 border-blue-200 text-blue-700">
+                                    {ticket.token}
+                                  </Badge>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => navigator.clipboard.writeText(ticket.token)}
+                                    className="h-6 w-6 p-0 hover:bg-blue-100"
+                                  >
+                                    <Copy className="h-3 w-3 text-blue-600" />
+                                  </Button>
+                                </div>
                                 <p><strong>ID:</strong> #{ticket.id}</p>
                                 <p><strong>Issue Type:</strong> {ticket.issue_type}</p>
                                 <p><strong>Description:</strong> {ticket.description}</p>

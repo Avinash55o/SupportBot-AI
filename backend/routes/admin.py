@@ -1,11 +1,6 @@
 from flask import Blueprint, request, jsonify
 from controllers.auth_controller import authenticate_admin
-from controllers.ticket_controller import (
-    get_all_tickets, 
-    assign_ticket, 
-    update_ticket_status,
-    get_ticket_analytics
-)
+from controllers.ticket_controller import TicketController
 
 admin_blueprint = Blueprint('admin', __name__)
 
@@ -39,7 +34,8 @@ def get_tickets():
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
         
-        tickets = get_all_tickets(
+        ticket_controller = TicketController()
+        tickets = ticket_controller.get_all_tickets(
             status=status,
             priority=priority,
             page=page,
@@ -64,7 +60,8 @@ def assign_ticket_to_admin(ticket_id):
         return jsonify({'error': 'Admin ID required'}), 400
     
     try:
-        ticket = assign_ticket(ticket_id, data['admin_id'])
+        ticket_controller = TicketController()
+        ticket = ticket_controller.assign_ticket(ticket_id, data['admin_id'])
         return jsonify({
             'message': 'Ticket assigned successfully',
             'ticket': ticket.to_dict()
@@ -85,7 +82,8 @@ def update_status(ticket_id):
         return jsonify({'error': 'Invalid status'}), 400
     
     try:
-        ticket = update_ticket_status(
+        ticket_controller = TicketController()
+        ticket = ticket_controller.update_ticket_status(
             ticket_id, 
             data['status'],
             data.get('notes', '')
@@ -101,7 +99,8 @@ def update_status(ticket_id):
 def get_ticket_details(ticket_id):
     """Get detailed ticket information"""
     try:
-        ticket = get_all_tickets(ticket_id=ticket_id)
+        ticket_controller = TicketController()
+        ticket = ticket_controller.get_all_tickets(ticket_id=ticket_id)
         return jsonify(ticket.to_dict()), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 404
@@ -110,7 +109,8 @@ def get_ticket_details(ticket_id):
 def get_analytics():
     """Get ticket analytics for dashboard"""
     try:
-        analytics = get_ticket_analytics()
+        ticket_controller = TicketController()
+        analytics = ticket_controller.get_ticket_analytics()
         return jsonify(analytics), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -128,7 +128,8 @@ def update_priority(ticket_id):
         return jsonify({'error': 'Invalid priority'}), 400
     
     try:
-        ticket = update_ticket_status(
+        ticket_controller = TicketController()
+        ticket = ticket_controller.update_ticket_status(
             ticket_id, 
             priority=data['priority']
         )
